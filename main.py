@@ -1,14 +1,22 @@
+from flask import Flask
 import asyncio
 import json
 import os
 from telethon import TelegramClient
 
-API_ID = int(os.environ.get("API_ID", 1234567))
-API_HASH = os.environ.get("API_HASH", "твой_api_hash")
-CHANNEL = "@trassa993"
-PHONE_NUMBER = "+79625231378"  # ЗАМЕНИ НА СВОЙ НОМЕР
+app = Flask(__name__)
 
-async def main():
+@app.route('/')
+def home():
+    return "OK"
+
+# Твой код сбора викторин
+async def collect():
+    API_ID = int(os.environ.get("API_ID", 36564697))
+    API_HASH = os.environ.get("API_HASH", "0e6f0a15f7f533106e2bd74bfab796fb")
+    CHANNEL = "trassa993"
+    PHONE_NUMBER = "+79625231378"
+    
     client = TelegramClient("session", API_ID, API_HASH)
     await client.start(phone=PHONE_NUMBER)
     
@@ -25,15 +33,12 @@ async def main():
     
     async for msg in client.iter_messages(CHANNEL, limit=500):
         if msg.poll and msg.poll.quiz:
-            link = f"https://t.me/{CHANNEL[1:]}/{msg.id}"
-            
+            link = f"https://t.me/{CHANNEL}/{msg.id}"
             if link in existing_links:
                 continue
-            
             correct_idx = msg.poll.correct_option_id
             if correct_idx is None:
                 continue
-            
             quiz_data = {
                 "link": link,
                 "date": msg.date.strftime("%Y-%m-%d"),
@@ -43,7 +48,6 @@ async def main():
             }
             new_quizzes.append(quiz_data)
             print(f"✅ {msg.date.strftime('%Y-%m-%d')}: {msg.poll.question[:40]}...")
-            
             await asyncio.sleep(0.5)
     
     if new_quizzes:
@@ -57,4 +61,7 @@ async def main():
     await client.disconnect()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # Запускаем сбор в фоне, а веб-сервер держим активным
+    import threading
+    threading.Thread(target=lambda: asyncio.run(collect())).start()
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
